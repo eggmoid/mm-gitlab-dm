@@ -17,17 +17,42 @@ const (
 	MMBOTID = ""
 )
 
-// HelloWorldPlugin implements the interface expected by the Mattermost server to communicate
-// between the server and plugin processes.
+type dict map[string]interface{}
+
+func (d dict) d(k string) dict {
+	return d[k].(map[string]interface{})
+}
+
+func (d dict) s(k string) string {
+	return d[k].(string)
+}
+
 type Plugin struct {
 	plugin.MattermostPlugin
 }
 
-// ServeHTTP demonstrates a plugin that handles HTTP requests by greeting the world.
+// ServeHTTP demonstrates a plugin that handles HTTP requests
 func (p *Plugin) ServeHTTP(c *plugin.Context, w http.ResponseWriter, r *http.Request) {
+	body, err := ioutil.ReadAll(r.Body)
+	if err != nil {
+		return
+	}
+	var data dict
+	json.Unmarshal([]byte(body), &data)
+
+	if data.s("event_type") != "merge_request" {
+		return
+	}
+
+	author := data.d("user").s("username")
+	url := data.d("object_attributes").s("url")
+	title := data.d("object_attributes").s("title")
+	description := data.d("object_attributes").s("description")
+
 	// BODY
 	// Get username
-	username := "admin"
+	username := "admin" // ASSIGNEE
+	payload := `author: ` + author + `, url: ` + url + `, title: ` + title + `, description: ` + description
 	// BODY
 
 	// Get user id
@@ -37,7 +62,7 @@ func (p *Plugin) ServeHTTP(c *plugin.Context, w http.ResponseWriter, r *http.Req
 	channelID := getChannelID(MMBOTID, userID)
 
 	// Post message to channel
-	createPost(channelID, "Hello, world!")
+	createPost(channelID, payload)
 }
 
 // get string and return string {{{
