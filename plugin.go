@@ -7,8 +7,10 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
+	"strings"
 
-	"github.com/mattermost/mattermost-server/v6/plugin"
+	"github.com/eggmoid/mm-gitlab-dm/config"
+	"github.com/mattermost/mattermost-server/v5/plugin"
 )
 
 const (
@@ -27,12 +29,32 @@ func (d dict) s(k string) string {
 	return d[k].(string)
 }
 
-type Plugin struct {
+type GitPlugin struct {
 	plugin.MattermostPlugin
 }
 
+func (p *GitPlugin) OnActivate() error {
+	config.Mattermost = p.API
+
+	if err := p.OnConfigurationChange(); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (p *GitPlugin) OnConfigurationChange() error {
+	if config.Mattermost == nil {
+		return nil
+	}
+	var configuration config.Configuration
+
+	config.SetConfig(&configuration)
+	return nil
+}
+
 // ServeHTTP demonstrates a plugin that handles HTTP requests
-func (p *Plugin) ServeHTTP(c *plugin.Context, w http.ResponseWriter, r *http.Request) {
+func (p *GitPlugin) ServeHTTP(c *plugin.Context, w http.ResponseWriter, r *http.Request) {
 	body, err := ioutil.ReadAll(r.Body)
 	if err != nil {
 		return
@@ -45,24 +67,30 @@ func (p *Plugin) ServeHTTP(c *plugin.Context, w http.ResponseWriter, r *http.Req
 	}
 
 	author := data.d("user").s("username")
+	name := data.d("user").s("name")
 	url := data.d("object_attributes").s("url")
 	title := data.d("object_attributes").s("title")
 	description := data.d("object_attributes").s("description")
+	namespace := data.d("project").s("namespace")
+	project := data.d("project").s("name")
+	project_url := data.d("project").s("homepage")
 
-	// BODY
-	// Get username
-	username := "admin" // ASSIGNEE
-	payload := `author: ` + author + `, url: ` + url + `, title: ` + title + `, description: ` + description
-	// BODY
+	fmt.Println(w, author, name, url, title, description, namespace, project, project_url)
 
-	// Get user id
-	userID := getUserID(username)
+	for _, a := range data["assignees"].([]interface{}) {
+		username := a.(map[string]interface{})["username"].(string)
+		payload := name + ` (` + author + `) opened merge request ` + `[` + title + `](` + url + `) in [` + namespace + ` / ` + project + `](` + project_url + `)`
 
-	// Get channel id
-	channelID := getChannelID(MMBOTID, userID)
+		// Get user id
+		userID := getUserID(username)
 
-	// Post message to channel
-	createPost(channelID, payload)
+		// Get channel id
+		channelID := getChannelID(MMBOTID, userID)
+		fmt.Println(w, channelID)
+
+		// Post message to channel
+		createPost(channelID, payload, title, url, description)
+	}
 }
 
 // get string and return string {{{
@@ -119,10 +147,21 @@ func getChannelID(botID, userID string) string {
 // }}}
 
 // create a post {{{
-func createPost(channelID, message string) string {
+func createPost(channelID, message, title, title_link, text string) string {
 	var jsonData = []byte(`{
 		"channel_id": "` + channelID + `",
-		"message": "` + message + `"
+		"message": "` + message + `",
+		"props": {
+			"attachments": [
+				{
+					"fallback": "",
+					"color": "#db3b21",
+					"title": "` + title + `",
+					"title_link": "` + title_link + `",
+					"text": "` + strings.Replace(text, "\n", "  ", -1) + `"
+				}
+			]
+		}
 	}`)
 	req, err := http.NewRequest("POST", MMAPI+"/posts", bytes.NewBuffer(jsonData))
 	if err != nil {
@@ -150,5 +189,5 @@ func createPost(channelID, message string) string {
 
 func main() {
 	http.DefaultTransport.(*http.Transport).TLSClientConfig = &tls.Config{InsecureSkipVerify: true}
-	plugin.ClientMain(&Plugin{})
+	plugin.ClientMain(&GitPlugin{})
 }
