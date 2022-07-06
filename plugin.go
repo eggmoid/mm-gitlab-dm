@@ -64,24 +64,23 @@ func (p *GitPlugin) ServeHTTP(c *plugin.Context, w http.ResponseWriter, r *http.
 	client := model.NewAPIv4Client(MMDOMAIN)
 	client.SetToken(MMTOKEN)
 
-	if data.s("event_type") != "merge_request" {
-		return
-	}
+	_, event_type_exist := data["event_type"]
+	if event_type_exist && data.s("event_type") == "merge_request" {
+		author := data.d("user").s("username")
+		name := data.d("user").s("name")
+		url := data.d("object_attributes").s("url")
+		title := data.d("object_attributes").s("title")
+		description := data.d("object_attributes").s("description")
+		namespace := data.d("project").s("namespace")
+		project := data.d("project").s("name")
+		project_url := data.d("project").s("homepage")
 
-	author := data.d("user").s("username")
-	name := data.d("user").s("name")
-	url := data.d("object_attributes").s("url")
-	title := data.d("object_attributes").s("title")
-	description := data.d("object_attributes").s("description")
-	namespace := data.d("project").s("namespace")
-	project := data.d("project").s("name")
-	project_url := data.d("project").s("homepage")
+		for _, a := range data["assignees"].([]interface{}) {
+			username := a.(map[string]interface{})["username"].(string)
+			payload := name + ` (` + author + `) opened merge request ` + `[` + title + `](` + url + `) in [` + namespace + ` / ` + project + `](` + project_url + `)`
 
-	for _, a := range data["assignees"].([]interface{}) {
-		username := a.(map[string]interface{})["username"].(string)
-		payload := name + ` (` + author + `) opened merge request ` + `[` + title + `](` + url + `) in [` + namespace + ` / ` + project + `](` + project_url + `)`
-
-		createPost(client, username, payload, title, url, description)
+			createPost(client, username, payload, title, url, description)
+		}
 	}
 }
 
