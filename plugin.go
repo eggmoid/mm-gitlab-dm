@@ -1,7 +1,6 @@
 package main
 
 import (
-	"bytes"
 	"crypto/tls"
 	"encoding/json"
 	"fmt"
@@ -54,7 +53,6 @@ func (p *GitPlugin) OnConfigurationChange() error {
 	return nil
 }
 
-// ServeHTTP demonstrates a plugin that handles HTTP requests
 func (p *GitPlugin) ServeHTTP(c *plugin.Context, w http.ResponseWriter, r *http.Request) {
 	body, err := ioutil.ReadAll(r.Body)
 	if err != nil {
@@ -62,6 +60,9 @@ func (p *GitPlugin) ServeHTTP(c *plugin.Context, w http.ResponseWriter, r *http.
 	}
 	var data dict
 	json.Unmarshal([]byte(body), &data)
+
+	client := model.NewAPIv4Client(MMDOMAIN)
+	client.SetToken(MMTOKEN)
 
 	if data.s("event_type") != "merge_request" {
 		return
@@ -80,72 +81,23 @@ func (p *GitPlugin) ServeHTTP(c *plugin.Context, w http.ResponseWriter, r *http.
 		username := a.(map[string]interface{})["username"].(string)
 		payload := name + ` (` + author + `) opened merge request ` + `[` + title + `](` + url + `) in [` + namespace + ` / ` + project + `](` + project_url + `)`
 
-		// Get user id
-		userID := getUserID(username)
-
-		// Get channel id
-		channelID := getChannelID(MMBOTID, userID)
-
-		// Post message to channel
-		createPost(channelID, payload, title, url, description)
+		createPost(client, username, payload, title, url, description)
 	}
 }
 
-// get string and return string {{{
-func getUserID(username string) string {
-	req, err := http.NewRequest("GET", MMAPI+"/users/username/"+username, nil)
-	if err != nil {
-		fmt.Println(err)
+func createPost(client *model.Client4, username, message, title, title_link, text string) {
+	user, res := client.GetUserByUsername(username, "")
+	if res.StatusCode >= 400 {
+		fmt.Println(res.Error.Message)
+		return
 	}
-	req.Header.Add("Authorization", "Bearer "+MMTOKEN)
-	req.Header.Add("Content-Type", "application/json")
 
-	client := &http.Client{}
-	resp, err := client.Do(req)
-	if err != nil {
-		fmt.Println(err)
+	channel, res := client.CreateDirectChannel(MMBOTID, user.Id)
+	if res.StatusCode >= 400 {
+		fmt.Println(res.Error.Message)
+		return
 	}
-	defer resp.Body.Close()
 
-	bytes, _ := ioutil.ReadAll(resp.Body)
-	str := string(bytes)
-	data := map[string]string{}
-
-	json.Unmarshal([]byte(str), &data)
-	return data["id"]
-}
-
-// }}}
-
-// get channel id from two user id {{{
-func getChannelID(botID, userID string) string {
-	var jsonData = []byte(`["` + botID + `", "` + userID + `"]`)
-	req, err := http.NewRequest("POST", MMAPI+"/channels/direct", bytes.NewBuffer(jsonData))
-	if err != nil {
-		fmt.Println(err)
-	}
-	req.Header.Add("Authorization", "Bearer "+MMTOKEN)
-	req.Header.Add("Content-Type", "application/json")
-
-	client := &http.Client{}
-	resp, err := client.Do(req)
-	if err != nil {
-		fmt.Println(err)
-	}
-	defer resp.Body.Close()
-
-	bytes, _ := ioutil.ReadAll(resp.Body)
-	str := string(bytes)
-	data := map[string]string{}
-
-	json.Unmarshal([]byte(str), &data)
-	return data["id"]
-}
-
-// }}}
-
-// create a post {{{
-func createPost(channelID, message, title, title_link, text string) string {
 	attachment := &model.SlackAttachment{
 		Fallback:  "",
 		Color:     "#db3b21",
@@ -155,21 +107,14 @@ func createPost(channelID, message, title, title_link, text string) string {
 	}
 	post := &model.Post{
 		UserId:    MMBOTID,
-		ChannelId: channelID,
+		ChannelId: channel.Id,
 		Message:   message,
 	}
 
 	model.ParseSlackAttachment(post, []*model.SlackAttachment{attachment})
 
-	client := model.NewAPIv4Client(MMDOMAIN)
-	client.SetToken(MMTOKEN)
-
 	client.CreatePost(post)
-
-	return ""
 }
-
-// }}}
 
 func main() {
 	http.DefaultTransport.(*http.Transport).TLSClientConfig = &tls.Config{InsecureSkipVerify: true}
