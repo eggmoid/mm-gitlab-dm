@@ -7,16 +7,17 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
-	"strings"
 
 	"github.com/eggmoid/mm-gitlab-dm/config"
+	"github.com/mattermost/mattermost-server/v5/model"
 	"github.com/mattermost/mattermost-server/v5/plugin"
 )
 
 const (
-	MMAPI   = ""
-	MMTOKEN = ""
-	MMBOTID = ""
+	MMDOMAIN = ""
+	MMAPI    = ""
+	MMTOKEN  = ""
+	MMBOTID  = ""
 )
 
 type dict map[string]interface{}
@@ -75,8 +76,6 @@ func (p *GitPlugin) ServeHTTP(c *plugin.Context, w http.ResponseWriter, r *http.
 	project := data.d("project").s("name")
 	project_url := data.d("project").s("homepage")
 
-	fmt.Println(w, author, name, url, title, description, namespace, project, project_url)
-
 	for _, a := range data["assignees"].([]interface{}) {
 		username := a.(map[string]interface{})["username"].(string)
 		payload := name + ` (` + author + `) opened merge request ` + `[` + title + `](` + url + `) in [` + namespace + ` / ` + project + `](` + project_url + `)`
@@ -86,7 +85,6 @@ func (p *GitPlugin) ServeHTTP(c *plugin.Context, w http.ResponseWriter, r *http.
 
 		// Get channel id
 		channelID := getChannelID(MMBOTID, userID)
-		fmt.Println(w, channelID)
 
 		// Post message to channel
 		createPost(channelID, payload, title, url, description)
@@ -148,41 +146,27 @@ func getChannelID(botID, userID string) string {
 
 // create a post {{{
 func createPost(channelID, message, title, title_link, text string) string {
-	var jsonData = []byte(`{
-		"channel_id": "` + channelID + `",
-		"message": "` + message + `",
-		"props": {
-			"attachments": [
-				{
-					"fallback": "",
-					"color": "#db3b21",
-					"title": "` + title + `",
-					"title_link": "` + title_link + `",
-					"text": "` + strings.Replace(text, "\n", "  ", -1) + `"
-				}
-			]
-		}
-	}`)
-	req, err := http.NewRequest("POST", MMAPI+"/posts", bytes.NewBuffer(jsonData))
-	if err != nil {
-		fmt.Println(err)
+	attachment := &model.SlackAttachment{
+		Fallback:  "",
+		Color:     "#db3b21",
+		Title:     title,
+		TitleLink: title_link,
+		Text:      text,
 	}
-	req.Header.Add("Authorization", "Bearer "+MMTOKEN)
-	req.Header.Add("Content-Type", "application/json")
-
-	client := &http.Client{}
-	resp, err := client.Do(req)
-	if err != nil {
-		fmt.Println(err)
+	post := &model.Post{
+		UserId:    MMBOTID,
+		ChannelId: channelID,
+		Message:   message,
 	}
-	defer resp.Body.Close()
 
-	bytes, _ := ioutil.ReadAll(resp.Body)
-	str := string(bytes)
-	data := map[string]string{}
+	model.ParseSlackAttachment(post, []*model.SlackAttachment{attachment})
 
-	json.Unmarshal([]byte(str), &data)
-	return data["id"]
+	client := model.NewAPIv4Client(MMDOMAIN)
+	client.SetToken(MMTOKEN)
+
+	client.CreatePost(post)
+
+	return ""
 }
 
 // }}}
