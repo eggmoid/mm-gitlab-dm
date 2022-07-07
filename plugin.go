@@ -59,13 +59,17 @@ func (p *GitPlugin) ServeHTTP(c *plugin.Context, w http.ResponseWriter, r *http.
 		return
 	}
 	var data dict
-	json.Unmarshal([]byte(body), &data)
+	if err := json.Unmarshal([]byte(body), &data); err != nil {
+		return
+	}
+	if _, ok := data["object_kind"]; !ok {
+		return
+	}
 
 	client := model.NewAPIv4Client(MMDOMAIN)
 	client.SetToken(MMTOKEN)
 
-	_, event_type_exist := data["event_type"]
-	if event_type_exist && data.s("event_type") == "merge_request" {
+	if data.s("object_kind") == "merge_request" {
 		author := data.d("user").s("username")
 		name := data.d("user").s("name")
 		url := data.d("object_attributes").s("url")
@@ -82,6 +86,8 @@ func (p *GitPlugin) ServeHTTP(c *plugin.Context, w http.ResponseWriter, r *http.
 
 			createPost(client, username, payload, title, url, description)
 		}
+	} else if data.s("object_kind") == "note" {
+		// comment
 	}
 }
 
