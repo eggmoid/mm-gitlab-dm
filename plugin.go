@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
+	"regexp"
 
 	"github.com/eggmoid/mm-gitlab-dm/config"
 	"github.com/mattermost/mattermost-server/v5/model"
@@ -87,7 +88,31 @@ func (p *GitPlugin) ServeHTTP(c *plugin.Context, w http.ResponseWriter, r *http.
 			createPost(client, username, payload, title, url, description)
 		}
 	} else if data.s("object_kind") == "note" {
-		// comment
+		author := data.d("user").s("username")
+		name := data.d("user").s("name")
+		url := data.d("object_attributes").s("url")
+		description := data.d("object_attributes").s("note")
+		namespace := data.d("project").s("namespace")
+		project := data.d("project").s("name")
+		project_url := data.d("project").s("homepage")
+
+		r := regexp.MustCompile(`([^@]+)@`)
+
+		switch t := data.d("object_attributes").s("noteable_type"); t {
+		case "MergeRequest":
+			title := data.d("merge_request").s("title")
+			// MR 작성자는 따로 나오지 않기 때문에 마지막 커밋의 email에서 이름을 추출
+			username := r.FindStringSubmatch(data.d("merge_request").d("last_commit").d("author").s("email"))[1]
+
+			// assignee는 따로 나오지 않기 때문에 본인 MR에 본인이 댓글을 달 경우 assignee에게 알림을 주는 기능은 없음
+			payload := name + ` (` + author + `) add comment to [` + title + `](` + url + `) in [` + namespace + ` / ` + project + `](` + project_url + `)`
+
+			createPost(client, username, payload, title, url, description)
+		case "Commit":
+			// Commit
+		case "Issue":
+			// Issue
+		}
 	}
 }
 

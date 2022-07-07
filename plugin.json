@@ -1,6 +1,7 @@
 {
   "id": "com.github.eggmoid.mm-gitlab-dm",
   "name": "Mattermost Plugin Gitlab DM",
+  "version": "220707.2",
   "server": {
     "executable": "plugin"
   }
