@@ -81,11 +81,13 @@ func (p *GitPlugin) ServeHTTP(c *plugin.Context, w http.ResponseWriter, r *http.
 		project_url := data.d("project").s("homepage")
 		action := data.d("object_attributes").s("action")
 
-		for _, a := range data["assignees"].([]interface{}) {
-			username := a.(map[string]interface{})["username"].(string)
-			payload := name + ` (` + author + `) ` + action + ` merge request ` + `[` + title + `](` + url + `) in [` + namespace + ` / ` + project + `](` + project_url + `)`
+		if _, ok := data["assignees"]; !ok {
+			for _, a := range data["assignees"].([]interface{}) {
+				username := a.(map[string]interface{})["username"].(string)
+				payload := name + ` (` + author + `) ` + action + ` merge request ` + `[` + title + `](` + url + `) in [` + namespace + ` / ` + project + `](` + project_url + `)`
 
-			createPost(client, username, payload, title, url, description)
+				createPost(client, username, payload, title, url, description)
+			}
 		}
 	} else if data.s("object_kind") == "note" {
 		author := data.d("user").s("username")
