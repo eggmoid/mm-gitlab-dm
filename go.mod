@@ -2,7 +2,12 @@ module github.com/eggmoid/mm-gitlab-dm
 
 go 1.18
 
-require github.com/mattermost/mattermost-server/v5 v5.39.3
+require (
+	github.com/mattermost/mattermost-server/v5 v5.39.3
+	github.com/shurcooL/graphql v0.0.0-20220606043923-3cf50f8a0a29
+	github.com/thoas/go-funk v0.9.2
+	golang.org/x/oauth2 v0.0.0-20200107190931-bf48bf16ab8d
+)
 
 require (
 	github.com/blang/semver v3.5.1+incompatible // indirect
@@ -57,6 +62,7 @@ require (
 	golang.org/x/net v0.0.0-20210614182718-04defd469f4e // indirect
 	golang.org/x/sys v0.0.0-20210616094352-59db8d763f22 // indirect
 	golang.org/x/text v0.3.6 // indirect
+	google.golang.org/appengine v1.6.6 // indirect
 	google.golang.org/genproto v0.0.0-20210624195500-8bfb893ecb84 // indirect
 	google.golang.org/grpc v1.38.0 // indirect
 	google.golang.org/protobuf v1.26.0 // indirect

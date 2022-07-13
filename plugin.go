@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
-	"regexp"
 
 	"github.com/eggmoid/mm-gitlab-dm/config"
 	"github.com/mattermost/mattermost-server/v5/model"
@@ -28,6 +27,10 @@ func (d dict) d(k string) dict {
 
 func (d dict) s(k string) string {
 	return d[k].(string)
+}
+
+func (d dict) i(k string) string {
+	return fmt.Sprintf("%d", int(d[k].(float64)))
 }
 
 type GitPlugin struct {
@@ -83,7 +86,7 @@ func (p *GitPlugin) ServeHTTP(c *plugin.Context, w http.ResponseWriter, r *http.
 
 		payload := name + ` (` + author + `) ` + action + ` merge request ` + `[` + title + `](` + url + `) in [` + namespace + ` / ` + project + `](` + project_url + `)`
 
-		if _, ok := data["assignees"]; !ok {
+		if _, ok := data["assignees"]; ok {
 			for _, a := range data["assignees"].([]interface{}) {
 				username := a.(map[string]interface{})["username"].(string)
 
@@ -99,18 +102,21 @@ func (p *GitPlugin) ServeHTTP(c *plugin.Context, w http.ResponseWriter, r *http.
 		project := data.d("project").s("name")
 		project_url := data.d("project").s("homepage")
 
-		r := regexp.MustCompile(`([^@]+)@`)
-
 		switch t := data.d("object_attributes").s("noteable_type"); t {
 		case "MergeRequest":
 			title := data.d("merge_request").s("title")
-			// MR 작성자는 따로 나오지 않기 때문에 마지막 커밋의 email에서 이름을 추출
-			username := r.FindStringSubmatch(data.d("merge_request").d("last_commit").d("author").s("email"))[1]
 
-			// assignee는 따로 나오지 않기 때문에 본인 MR에 본인이 댓글을 달 경우 assignee에게 알림을 주는 기능은 없음
 			payload := name + ` (` + author + `) add comment to [` + title + `](` + url + `) in [` + namespace + ` / ` + project + `](` + project_url + `)`
 
-			createPost(client, username, payload, title, url, description)
+			userIds, _ := retrieveUserIDsByMRID(data.d("merge_request").i("id"))
+			if len(userIds) > 0 {
+				usernames, _ := retrieveUsernamesByUserID(userIds)
+				for _, username := range usernames {
+					if username != author {
+						createPost(client, username, payload, title, url, description)
+					}
+				}
+			}
 		case "Commit":
 			// Commit
 		case "Issue":
