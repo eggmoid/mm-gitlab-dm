@@ -29,8 +29,8 @@ func (d dict) s(k string) string {
 	return d[k].(string)
 }
 
-func (d dict) i(k string) string {
-	return fmt.Sprintf("%d", int(d[k].(float64)))
+func (d dict) i(k string) int {
+	return int(d[k].(float64))
 }
 
 type GitPlugin struct {
@@ -108,7 +108,7 @@ func (p *GitPlugin) ServeHTTP(c *plugin.Context, w http.ResponseWriter, r *http.
 
 			payload := name + ` (` + author + `) add comment to [` + title + `](` + url + `) in [` + namespace + ` / ` + project + `](` + project_url + `)`
 
-			userIds, _ := retrieveUserIDsByMRID(data.d("merge_request").i("id"))
+			userIds, _ := retrieveUserIDsByMRID(fmt.Sprintf("%d", data.d("merge_request").i("id")))
 			if len(userIds) > 0 {
 				usernames, _ := retrieveUsernamesByUserID(userIds)
 				for _, username := range usernames {
