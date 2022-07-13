@@ -101,6 +101,7 @@ func (p *GitPlugin) ServeHTTP(c *plugin.Context, w http.ResponseWriter, r *http.
 		namespace := data.d("project").s("namespace")
 		project := data.d("project").s("name")
 		project_url := data.d("project").s("homepage")
+		project_id := data.d("project").i("id")
 
 		switch t := data.d("object_attributes").s("noteable_type"); t {
 		case "MergeRequest":
@@ -108,9 +109,8 @@ func (p *GitPlugin) ServeHTTP(c *plugin.Context, w http.ResponseWriter, r *http.
 
 			payload := name + ` (` + author + `) add comment to [` + title + `](` + url + `) in [` + namespace + ` / ` + project + `](` + project_url + `)`
 
-			userIds, _ := retrieveUserIDsByMRID(fmt.Sprintf("%d", data.d("merge_request").i("id")))
-			if len(userIds) > 0 {
-				usernames, _ := retrieveUsernamesByUserID(userIds)
+			usernames, err := retrieveUsernames(project_id, data.d("merge_request").i("id"))
+			if err == nil && len(usernames) > 0 {
 				for _, username := range usernames {
 					if username != author {
 						createPost(client, username, payload, title, url, description)
