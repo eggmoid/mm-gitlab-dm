@@ -14,7 +14,6 @@ import (
 
 const (
 	MMDOMAIN = ""
-	MMAPI    = ""
 	MMTOKEN  = ""
 	MMBOTID  = ""
 )
@@ -33,11 +32,11 @@ func (d dict) i(k string) int {
 	return int(d[k].(float64))
 }
 
-type GitPlugin struct {
+type Plugin struct {
 	plugin.MattermostPlugin
 }
 
-func (p *GitPlugin) OnActivate() error {
+func (p *Plugin) OnActivate() error {
 	config.Mattermost = p.API
 
 	if err := p.OnConfigurationChange(); err != nil {
@@ -47,7 +46,7 @@ func (p *GitPlugin) OnActivate() error {
 	return nil
 }
 
-func (p *GitPlugin) OnConfigurationChange() error {
+func (p *Plugin) OnConfigurationChange() error {
 	if config.Mattermost == nil {
 		return nil
 	}
@@ -57,7 +56,7 @@ func (p *GitPlugin) OnConfigurationChange() error {
 	return nil
 }
 
-func (p *GitPlugin) ServeHTTP(c *plugin.Context, w http.ResponseWriter, r *http.Request) {
+func (p *Plugin) ServeHTTP(c *plugin.Context, w http.ResponseWriter, r *http.Request) {
 	body, err := ioutil.ReadAll(r.Body)
 	if err != nil {
 		return
@@ -109,7 +108,7 @@ func (p *GitPlugin) ServeHTTP(c *plugin.Context, w http.ResponseWriter, r *http.
 
 			payload := name + ` (` + author + `) add comment to [` + title + `](` + url + `) in [` + namespace + ` / ` + project + `](` + project_url + `)`
 
-			usernames, err := retrieveUsernames(project_id, data.d("merge_request").i("id"))
+			usernames, err := retrieveUsernames(project_id, data.d("merge_request").i("iid"))
 			if err == nil && len(usernames) > 0 {
 				for _, username := range usernames {
 					if username != author {
@@ -158,5 +157,5 @@ func createPost(client *model.Client4, username, message, title, title_link, tex
 
 func main() {
 	http.DefaultTransport.(*http.Transport).TLSClientConfig = &tls.Config{InsecureSkipVerify: true}
-	plugin.ClientMain(&GitPlugin{})
+	plugin.ClientMain(&Plugin{})
 }
