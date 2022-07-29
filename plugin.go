@@ -36,6 +36,12 @@ type Plugin struct {
 	plugin.MattermostPlugin
 }
 
+func NewPlugin() *Plugin {
+	plugin := &Plugin{}
+
+	return plugin
+}
+
 func (p *Plugin) OnActivate() error {
 	config.Mattermost = p.API
 
@@ -51,6 +57,21 @@ func (p *Plugin) OnConfigurationChange() error {
 		return nil
 	}
 	var configuration config.Configuration
+
+	if err := config.Mattermost.LoadPluginConfiguration(&configuration); err != nil {
+		config.Mattermost.LogError("Error in LoadPluginConfiguration.", "Error", err.Error())
+		return err
+	}
+
+	if err := configuration.ProcessConfiguration(); err != nil {
+		config.Mattermost.LogError("Error in ProcessConfiguration.", "Error", err.Error())
+		return err
+	}
+
+	if err := configuration.IsValid(); err != nil {
+		config.Mattermost.LogError("Error in Validating Configuration.", "Error", err.Error())
+		return err
+	}
 
 	config.SetConfig(&configuration)
 	return nil
@@ -157,5 +178,5 @@ func createPost(client *model.Client4, username, message, title, title_link, tex
 
 func main() {
 	http.DefaultTransport.(*http.Transport).TLSClientConfig = &tls.Config{InsecureSkipVerify: true}
-	plugin.ClientMain(&Plugin{})
+	plugin.ClientMain(NewPlugin())
 }

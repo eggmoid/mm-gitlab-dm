@@ -1,11 +1,11 @@
 package config
 
 import (
-	"errors"
 	"strings"
-	"sync/atomic"
 
 	"github.com/mattermost/mattermost-server/v5/plugin"
+	"github.com/pkg/errors"
+	"go.uber.org/atomic"
 )
 
 var (
@@ -15,7 +15,7 @@ var (
 )
 
 type Configuration struct {
-	Secret string `json:"secret"`
+	Secret string `json:"Secret"`
 }
 
 func GetConfig() *Configuration {
