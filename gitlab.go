@@ -7,11 +7,6 @@ import (
 	"github.com/xanzy/go-gitlab"
 )
 
-const (
-	GITLAB_TOKEN = ""
-	GITLAB_URL   = ""
-)
-
 func retrieveUsernames(id, merge_request_iid int) ([]string, error) {
 	git, err := gitlab.NewClient(GITLAB_TOKEN, gitlab.WithBaseURL(GITLAB_URL))
 	if err != nil {

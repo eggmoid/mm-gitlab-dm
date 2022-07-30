@@ -12,12 +12,6 @@ import (
 	"github.com/mattermost/mattermost-server/v5/plugin"
 )
 
-const (
-	MMDOMAIN = ""
-	MMTOKEN  = ""
-	MMBOTID  = ""
-)
-
 type dict map[string]interface{}
 
 func (d dict) d(k string) dict {
